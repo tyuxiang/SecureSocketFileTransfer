@@ -40,13 +40,13 @@ public class ServerCP1 {
             
             PrivateKey pri_key = PrivateKeyReader.get("private_key.der");
 
-            Cipher RSADeCipherPrivate = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+    		Cipher RSADeCipherPrivate = Cipher.getInstance("RSA/ECB/PKCS1Padding");
             RSADeCipherPrivate.init(Cipher.DECRYPT_MODE, pri_key);
 
 			while (!connectionSocket.isClosed()) {
 
 				int packetType = fromClient.readInt();
-				System.out.println("packetType: " + packetType);
+				// System.out.println("packetType: " + packetType);
 
 				// If the packet is for authentication
 				if (packetType == -1){
@@ -104,48 +104,48 @@ public class ServerCP1 {
 
 				// If the packet is for transferring the filename
 				if (packetType == 0) {
-					FileOutputStream fileOutputStream = null;
-					System.out.println("Receiving file...");
+					// FileOutputStream fileOutputStream = null;
+					// System.out.println("Receiving file...");
 
-					int numBytes = fromClient.readInt();
-					// System.out.println(numBytes);
-					byte [] filename = new byte[numBytes];
-					// Must use read fully!
-					// See: https://stackoverflow.com/questions/25897627/datainputstream-read-vs-datainputstream-readfully
-                    fromClient.readFully(filename, 0, numBytes);
+					// int numBytes = fromClient.readInt();
+					// // System.out.println(numBytes);
+					// byte [] filename = new byte[numBytes];
+					// // Must use read fully!
+					// // See: https://stackoverflow.com/questions/25897627/datainputstream-read-vs-datainputstream-readfully
+                    // fromClient.readFully(filename, 0, numBytes);
                     
-                    //Decypher file name
-                    byte[] newFilename = RSADeCipherPrivate.doFinal(filename);
+                    // //Decypher file name
+                    // byte[] newFilename = RSADeCipherPrivate.doFinal(filename);
 
-					System.out.println(new String(newFilename, 0, newFilename.length));
-					fileOutputStream = new FileOutputStream("Server_"+new String(newFilename, 0, newFilename.length));
-					// fileOutputStream = makeFile(fromClient);
+					// System.out.println(new String(newFilename, 0, newFilename.length));
+					// fileOutputStream = new FileOutputStream("Server_"+new String(newFilename, 0, newFilename.length));
+					fileOutputStream = makeFile(fromClient, RSADeCipherPrivate);
 					bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream);
 
 				// If the packet is for transferring a chunk of the file
 				} else if (packetType == 1) {
-					int numBytes = fromClient.readInt();
-					byte [] block = new byte[128];
-                    fromClient.readFully(block, 0, 128);
+					// int numBytes = fromClient.readInt();
+					// byte [] block = new byte[128];
+                    // fromClient.readFully(block, 0, 128);
                     
-                    //Decypher each chunk of file
-                    byte[] blockbytes = RSADeCipherPrivate.doFinal(block);
+                    // //Decypher each chunk of file
+                    // byte[] blockbytes = RSADeCipherPrivate.doFinal(block);
 
-					if (numBytes > 0)
-						bufferedFileOutputStream.write(blockbytes, 0, numBytes);
+					// if (numBytes > 0)
+					// 	bufferedFileOutputStream.write(blockbytes, 0, numBytes);
 
-					if (numBytes < 117) {
-						System.out.println("Closing connection...");
+					// if (numBytes < 117) {
+					// 	System.out.println("Closing connection...");
 
-						if (bufferedFileOutputStream != null) {
-							bufferedFileOutputStream.close();
-							// fileOutputStream.close();
-						}
-						// if (bufferedFileOutputStream != null) fileOutputStream.close();
-						// System.out.println(fromClient.readInt());
-						// read(toClient, "read");
-					}
-					// readFile(fileOutputStream, bufferedFileOutputStream, fromClient, toClient);
+					// 	if (bufferedFileOutputStream != null) {
+					// 		bufferedFileOutputStream.close();
+					// 		// fileOutputStream.close();
+					// 	}
+					// 	// if (bufferedFileOutputStream != null) fileOutputStream.close();
+					// 	// System.out.println(fromClient.readInt());
+					// 	// read(toClient, "read");
+					// }
+					readFile(fileOutputStream, bufferedFileOutputStream, fromClient, toClient, RSADeCipherPrivate);
 				}
 
 			}
@@ -166,13 +166,14 @@ public class ServerCP1 {
 	}
 
 	private static void readFile(FileOutputStream fileOutputStream, BufferedOutputStream bufferedFileOutputStream, 
-	DataInputStream fromClient, DataOutputStream toClient) throws Exception{
+	DataInputStream fromClient, DataOutputStream toClient, Cipher RSADeCipherPrivate) throws Exception{
 		int numBytes = fromClient.readInt();
-		byte [] block = new byte[numBytes];
-		fromClient.readFully(block, 0, numBytes);
+		byte [] block = new byte[128];
+		fromClient.readFully(block, 0, 128);
+		byte[] blockbytes = RSADeCipherPrivate.doFinal(block);
 
 		if (numBytes > 0)
-			bufferedFileOutputStream.write(block, 0, numBytes);
+			bufferedFileOutputStream.write(blockbytes, 0, numBytes);
 
 		if (numBytes < 117) {
 			System.out.println("Closing connection...");
@@ -186,7 +187,7 @@ public class ServerCP1 {
 		}
 	}
 
-	private static FileOutputStream makeFile(DataInputStream fromClient) throws Exception{
+	private static FileOutputStream makeFile(DataInputStream fromClient, Cipher RSADeCipherPrivate) throws Exception{
 		System.out.println("Receiving file...");
 
 		int numBytes = fromClient.readInt();
@@ -195,9 +196,10 @@ public class ServerCP1 {
 		// Must use read fully!
 		// See: https://stackoverflow.com/questions/25897627/datainputstream-read-vs-datainputstream-readfully
 		fromClient.readFully(filename, 0, numBytes);
+		byte[] newFilename = RSADeCipherPrivate.doFinal(filename);
 
-		System.out.println(new String(filename, 0, numBytes));
-		fileOutputStream = new FileOutputStream("Server_"+new String(filename, 0, numBytes));
+		System.out.println(new String(newFilename, 0, newFilename.length));
+		fileOutputStream = new FileOutputStream("Server_"+new String(newFilename, 0, newFilename.length));
 		return fileOutputStream;
 	}
 
